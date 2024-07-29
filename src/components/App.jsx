@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { ImageGallery } from './ImageGallery/ImageGallery';
 import { SearchBar } from './SearchBar/SearchBar';
 import { Button } from './Button/Button';
@@ -6,27 +6,27 @@ import { getAPI } from '../pixabay-api';
 import { Loader } from './Loader/Loader';
 import toast, { Toaster } from 'react-hot-toast';
 
-export class App extends Component {
-  state = {
-    search: '',
-    page: 1,
-    images: [],
-    isLoading: false,
-    isError: false,
-    isEnd: false,
-  };
+export const App = () => {
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [images, setImages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isError, setIsError] = useState(false);
+  const [isEnd, setIsEnd] = useState(false);
 
-  componentDidUpdate = async (_prevProps, prevState) => {
-    const { search, page } = this.state;
-    if (prevState.search !== search || prevState.page !== page) {
-      await this.fetchImages(search, page);
-    }
-  };
+  useEffect(() => {
+    if (search === '') return;
 
-  fetchImages = async (search, page) => {
+    (async () => {
+      await fetchImages(search, page);
+    })();
+
+    return () => {};
+  }, [search, page]);
+
+  const fetchImages = async (search, page) => {
     try {
-      this.setState({ isLoading: true });
-
+      setIsLoading(true);
       const fetchedImages = await getAPI(search, page);
 
       const { hits, totalHits } = fetchedImages;
@@ -42,48 +42,46 @@ export class App extends Component {
         toast.success(`Hooray! We found ${totalHits} images!`);
       }
       if (page * 12 >= totalHits) {
-        this.setState({ isEnd: true });
-        toast("We're sorry, but you've reached the end of search results.");
+        setIsEnd(true);
+        toast("We're sorry, but you've reached the end of search results.", {});
       }
-
-      this.setState(prevState => ({
-        images: [...prevState.images, ...hits],
-      }));
+      setImages(prevState => [...prevState, ...hits]);
     } catch {
-      this.setState({ isError: true });
-      toast.error('Oops, something went wrong! Reload this page!');
+      setIsError(true);
     } finally {
-      this.setState({ isLoading: false });
+      setIsLoading(false);
     }
   };
 
-  handleSubmit = e => {
+  const handleSubmit = e => {
     e.preventDefault();
 
-    const { search } = this.state;
     const newSearch = e.target.search.value.trim().toLowerCase();
 
     if (newSearch !== search) {
-      this.setState({ search: newSearch, page: 1, images: [] });
+      setSearch(newSearch);
+      setPage(1);
+      setImages([]);
     }
   };
 
-  handleClick = () => {
-    this.setState(prevState => ({ page: prevState.page + 1 }));
+  const handleClick = () => {
+    setPage(prevState => prevState + 1);
   };
 
-  render() {
-    const { images, isLoading, isError, isEnd } = this.state;
-    return (
-      <div className="main-wrapper">
-        <SearchBar onSubmit={this.handleSubmit} />
+  return (
+    <div className="main-wrapper">
+      <SearchBar onSubmit={handleSubmit} />
 
-        {images.length >= 1 && <ImageGallery photos={images} />}
-        {images.length >= 2 && !isEnd && <Button onClick={this.handleClick} />}
-        {isLoading && <Loader />}
-        {isError && toast.error('Oops, something went wrong!')}
-        <Toaster position="top-left" reverseOder={false} />
-      </div>
-    );
-  }
-}
+      {images.length >= 1 && <ImageGallery photos={images} />}
+
+      {images.length >= 2 && !isEnd && <Button onClick={handleClick} />}
+
+      {isLoading && <Loader />}
+
+      {isError && toast.error('Oops, something went wrong! Reload this page!')}
+
+      <Toaster position="top-left" reverseOrder={false} />
+    </div>
+  );
+};
